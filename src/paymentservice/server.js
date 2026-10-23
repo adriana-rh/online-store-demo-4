@@ -40,7 +40,7 @@ class HipsterShopServer {
    */
   static ChargeServiceHandler(call, callback) {
     try {
-      logger.info(`PaymentService#Charge invoked with request ${JSON.stringify(call.request)}`);
+      logger.info(`PaymentService#Charge invoked with amount ${JSON.stringify(call.request && call.request.amount)}`);
       const response = charge(call.request);
       callback(null, response);
     } catch (err) {
@@ -54,17 +54,24 @@ class HipsterShopServer {
   }
 
 
-  listen() {
-    const server = this.server 
-    const port = this.port
+  listen(callback = () => {}) {
+    const server = this.server
     server.bindAsync(
-      `[::]:${port}`,
+      `[::]:${this.port}`,
       grpc.ServerCredentials.createInsecure(),
-      function () {
+      function (err, port) {
+        if (err) {
+          logger.error(`PaymentService gRPC server failed to bind: ${err.message}`);
+          return callback(err);
+        }
         logger.info(`PaymentService gRPC server started on port ${port}`);
-        server.start();
+        callback(null, port);
       }
     );
+  }
+
+  close(callback = () => {}) {
+    this.server.tryShutdown(callback);
   }
 
   loadProto(path) {
